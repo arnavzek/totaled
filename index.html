@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <style>
+
+      body{
+        padding:0;
+        margin:0;
+        width: 100vw;
+        overflow-x: hidden;
+        height:100vh;
+      }
+
+      html, body {
+
+        overflow-x: hidden;
+      }
+
+
+    </style>
+    <meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Rochester&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@200;300;400;500;700;900&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Totaled</title>
+    <link type="image/x-icon" rel="icon" href="/images/header/appLogo.svg">
+    <meta name="theme-color" content="linear-gradient(180.74deg, #F8BF50 0.93%, #FF3F3F 83.05%)">
+
+</head>
+
+
+<body>
+    <the-header></the-header>
+    <main-container></main-container>
+</body>
+
+<script>
+
+  function splash(){//must be the first script tag to be attached but should not be added in the head tag as it will execute before initialization of body dom
+
+    if(document.readyState == 'complete') return
+    let logo = document.querySelector('link[type="image/x-icon"]').href
+    let title = document.querySelector('title').innerText
+
+    let splashElement = document.createElement('div')
+
+    splashElement.setAttribute('style',`
+          background:#fff;
+          position:absolute; 
+          display:grid; 
+          top:0;
+          left:0;
+          height:100vh;
+          z-index:555;
+          width:100vw;
+          place-items:center;
+    `)
+
+    splashElement.innerHTML = `
+ 
+    <img src="${logo}">
+    
+    `
+    document.body.appendChild(splashElement)
+
+    //element is not removed using query selector cause it can intefere with element with the same id
+    window.addEventListener('load',()=>{splashElement.parentElement.removeChild(splashElement)})
+  }
+
+  splash()
+</script>
+
+<script>
+  function  returnFirstName(full){
+    function caps(word){
+      return word.charAt(0).toUpperCase()+word.slice(1)
+    }
+
+    return caps(full.split('-')[0])
+}
+
+</script>
+<script src='https://www.unpkg.com/dom-to-image@2.6.0/src/dom-to-image.js'></script>
+
+
+<script  class='dontHost' src="http://source.upon.one"></script>
+
+
+
+<script class='dontHost'>
+
+  //to do: add meta support
+  //I have two options, 
+
+  // to do add support for serverless
+  // read update, read & write rules of every 
+
+  /*
+  If I remove handle parse then I can I do everything with serverless?
+  I can just say ifPremiumUser(), YES I can do everything.
+  */
+
+  //U.serverless['ifPremiumUser'] = function(user){}
+
+  
+
+  U.bucket['memeImages'] = {
+    updatable:true,
+    findable:true,
+    writable:true
+  }
+
+
+  //if you want to do a specific write or read just don't use intermediate just call {$serverless:'ifPremiumUser($user)'}
+
+  U.cloudFunctions['like'] = async ()=>{
+
+    let contentId = arg.contentId
+
+    let currentAction = await U.query({$find:{ on:'actions', where:{sender:'$user.id',contentId:contentId} }})
+
+    if(currentAction[0]){
+      await U.query({$delete:{ on:'actions', where:{contentId:contentId,sender:'$user.id'} }})
+      return('unClicked')
+    }else{
+      let writtenData =  await U.query({$write:{ on:'actions', put:{type:arg.type, contentId:contentId} }})
+      if(writtenData.error) return writtenData
+      return('clicked')
+    }
+
+  }
+
+
+  async function setTitle(){
+    let count = await U.query({$count:{ on:'pages', where:{ fullName:'$put.fullName'} }})
+    return `${put.fullName.replace(' ','-')}-${count}`
+  }
+
+
+  U.db['bioInfo'] = {schema:{
+    pageTitle:{type:String,required:true},
+    field:{type:String,required:true},
+    contentType:{type:String,required:true},
+    value:{type:String,required:true},
+    author:{default:'$user.id',type:String,updatable:false,findable:false,writable:false}
+  },updatable:true,
+    findable:true,
+    writable:true
+  }
+
+
+
+
+  U.db['memes'] = {
+    schema:{
+      pageTitle:{type:String, required:true},
+      imageLink:{type:String, required:true},
+      overlays:{type:Array, required:true},
+      author:{default:'$user.id',type:String, updatable:false, findable:false, writable:false},
+      createdAt:{type:Date, default:{$date:'now'},required:true,updatable:false,findable:false,writable:false },
+      rank:{type:Number, updatable:false, writable:false},
+      userLocation:Object,
+      },
+      updatable:false,
+      findable:true,
+      writable:true
+  }
+
+  let findActionReceiver = async ()=>{
+
+    let whereQuery = {_id:'$put.contentId'}
+    if(put.type == 'pages') whereQuery = {title:'$put.contentId'}
+
+    if(put.type == 'pages') return null
+    let data = await U.query({$find:{on:'$put.type', where:whereQuery } })
+    if(!data[0]) throw Error('author not found')
+    let receiver = data[0].author
+
+
+    return receiver
+  }
+
+  U.db['actions'] = {schema:{
+    contentId:{type:String,required:true},
+    type:{type:String, required:true},
+    sender:{default:'$user.id', type:String, required:true, updatable:false, findable:false, writable:false},
+    receiver:{default:findActionReceiver, type:String,findable:false},
+    createdAt:{type:Date,default:{'$date':'now'} }
+  },updatable:true,
+    findable:true,
+    writable:true,
+    onWrite:async ()=>{
+
+      if(field.type !== 'memes') return 
+
+      let lastActions = await U.query({ '$find':{on:'actions', where:{ type:'memes', contentId:field.contentId }, sort:{'createdAt':'descending'}   } })
+
+      let response
+
+      if(lastActions.length > 2){
+
+        let content = await U.query({'$find':{on:'memes', where:{id:'$field.contentId'}  }})
+
+        let preActionCreation = lastActions[0].createdAt
+        let prePreActionCreation = lastActions[1].createdAt
+
+        let newRank = 1 / (preActionCreation - prePreActionCreation)
+        if(content[0]){
+          newRank = content[0].rank * newRank
+        }
+
+        response =  await U.query({'$update':{on:'memes', where:{id:'$field.contentId'}, put:{rank:newRank}  }})
+      }else{
+        response =  await U.query({'$update':{on:'memes', where:{id:'$field.contentId'}, put:{rank:0 }  }})
+      }
+
+
+      return response
+
+    }
+  }
+
+
+  U.db['buttons'] = {
+    schema:{
+      pageTitle:{type:String, required:true},
+      buttonText:{type:String, required:true},
+      contentType:{type:String, required:true},
+      author:{default:'$user.id',type:String, updatable:false, findable:false, writable:false}
+    },
+      updatable:false,
+      findable:true,
+      writable:true
+  }
+
+//dont't allow public from reading registered_user_writer
+
+U.uploadStaticFiles([
+  './index.js',
+ '/images/header/appLogo.svg',
+  '/images/header/logo.svg',
+  '/images/header/flame.svg'
+])
+
+U.run('totaled',{local:false, loginBeforeEntry:false, host:false})
+
+
+</script>
+<script>
+
+  window.wikiSearch = (keyword)=>{
+
+    let url = "https://en.wikipedia.org/w/api.php"; 
+
+    // old method:https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvprop=content&titles=pizza
+    //reson of removal: takes longer to process, 
+
+    var params = {
+        action: "query",
+        list: "search",
+        srsearch: encodeURIComponent(keyword),
+        srlimit:20,
+        explaintext:'1',
+        format: "json"
+    };
+
+
+
+    let parsedUrl = url + "?origin=*";
+    Object.keys(params).forEach(function(key){parsedUrl += "&" + key + "=" + params[key];});
+
+    return fetch(parsedUrl)
+      .then(function(response){return response.json();})
+
+  }
+
+
+  //-----------------------Infinte Scroll-------------------------
+
+
+
+  function whenToLoad(element,callback){
+    element.addEventListener('scroll', function() {
+
+      if (element.scrollTop + element.clientHeight >= element.scrollHeight) {
+        callback();
+      }
+
+    })
+  }
+
+  // Detect when scrolled to bottom.
+
+
+</script>
+<script type="module" src="/index.js"> </script>
+</html>

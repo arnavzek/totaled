@@ -1,0 +1,22 @@
+There is a very thin line between roasting and bullying, desclaimers don't work. Just because of a few people who platform could suffer scrutiny
+We could encourage people to be sarcastic it will work like a subtext that it is a joke not a serious criticism.
+
+A better soution is creating a balance, providing something opposite to roasting we serve the same pourpose of bringing smile to users.
+The solution is adding a new narration, Users can create meme that are roasts or appreciation and because eveyone on this platform is annonymus 
+it is comfortable to accept the appreciation.
+
+we will call this second narration love. so we need to change the name of the platform to Roastandlove.
+
+https://medium.com/javascript-in-plain-english/what-is-objectid-in-mongodb-and-how-to-generate-it-manually-when-required-923f7cf1dac8
+
+
+const { MongoClient, ObjectID } = require('mongodb');
+const connectionURL = "mongodb://127.0.0.1";
+const databaseName = "company";
+MongoClient.connect(connectionURL, { useNewUrlParser: true, useUnifiedTopology: true }, (error, client) => {
+ if(error) {
+  return console.log('error connecting to mongodb');
+}
+const db = client.db(databaseName);
+const newObjectId = new ObjectID();
+console.log('object id', newObjectId);

@@ -1,0 +1,4 @@
+new class spash{
+    constructor(){
+    }
+}

@@ -1,0 +1,26 @@
+<script>
+
+
+
+    function cb(){
+        async function b(){
+        throw Error('async xxx error')
+        } 
+        b()
+    } 
+
+    let a = async()=>{
+
+        setTimeout(()=>{
+            //throw Error('puck')
+        },1000)
+
+        cb()
+
+        //b()
+
+    }
+
+    a().then().catch(console.warn)
+
+</script>
